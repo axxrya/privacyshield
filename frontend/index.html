@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrivacyShield // On-Device PII Redaction Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="lab-shell">
+    <!-- TOP TELEMETRY & ZERO-CLOUD STATUS BAR -->
+    <header class="topbar">
+      <div class="brand-cluster">
+        <div class="hardware-badge" aria-hidden="true">PS-01</div>
+        <div class="brand-titles">
+          <h1>PRIVACYSHIELD</h1>
+          <span class="subtitle">ON-DEVICE PII REDACTION LAB // CPU-LOCAL</span>
+        </div>
+      </div>
+
+      <div class="telemetry-strip" aria-label="Real-time inference telemetry">
+        <div class="tele-cell">
+          <span class="tele-label">INFERENCE LATENCY</span>
+          <span class="tele-value" id="metricLatency">-- ms</span>
+          <span class="tele-sub" id="metricLatencyBreakdown">OCR -- · NLP -- · CV --</span>
+        </div>
+        <div class="tele-cell">
+          <span class="tele-label">CPU MEMORY</span>
+          <span class="tele-value" id="metricMemory">-- MB</span>
+          <span class="tele-sub" id="metricEngines">RAPIDOCR + SPACY</span>
+        </div>
+        <div class="tele-cell">
+          <span class="tele-label">ENTITIES DETECTED</span>
+          <span class="tele-value" id="metricEntities">0 / 0</span>
+          <span class="tele-sub" id="metricRedactedState">AWAITING DOCUMENT</span>
+        </div>
+      </div>
+
+      <div class="cloud-monitor" id="cloudMonitorBadge" title="All requests stay strictly on localhost. Zero external cloud transmission.">
+        <span class="led-dot" aria-hidden="true"></span>
+        <div class="cloud-text">
+          <span class="cloud-primary">100% ON-DEVICE // 0 BYTES SENT TO CLOUD</span>
+          <span class="cloud-sub" id="networkAuditText">LOCAL IPC: 0 KB · EXTERNAL: 0 B</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN 3-COLUMN SWISS HARDWARE GRID -->
+    <main class="workspace-grid">
+      <!-- LEFT CONTROL RAIL -->
+      <aside class="control-rail">
+        <section class="panel-card">
+          <div class="panel-header">
+            <span class="panel-index">01</span>
+            <h2>DOCUMENT INPUT</h2>
+          </div>
+          <div class="panel-body">
+            <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload screenshot or document photo">
+              <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/bmp" hidden />
+              <div class="dropzone-icon">+</div>
+              <div class="dropzone-copy">
+                <strong>DROP DOCUMENT OR CLICK</strong>
+                <span>PNG, JPG, WEBP — processed locally in RAM</span>
+              </div>
+            </div>
+
+            <div class="sample-block">
+              <div class="sample-label-row">
+                <span class="micro-label">SYNTHETIC TEST FIXTURES</span>
+                <div class="sample-selector" role="group" aria-label="Select synthetic sample type">
+                  <button type="button" class="chip-btn active" data-sample="indian_id">ID CARD</button>
+                  <button type="button" class="chip-btn" data-sample="upi_receipt">UPI RECEIPT</button>
+                </div>
+              </div>
+              <button type="button" class="tactile-btn primary-btn" id="generateSampleBtn">
+                <span class="btn-dot"></span>
+                GENERATE SAMPLE INDIAN ID / PAYMENT RECEIPT
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <div class="panel-header">
+            <span class="panel-index">02</span>
+            <h2>REDACTION ENGINE</h2>
+          </div>
+          <div class="panel-body">
+            <div class="mode-stack" role="radiogroup" aria-label="Redaction style">
+              <button type="button" class="mode-option active" data-style="pixelate">
+                <div class="mode-top">
+                  <span class="mode-code">M-01</span>
+                  <span class="mode-name">GAUSSIAN PIXELATION</span>
+                </div>
+                <span class="mode-desc">Mosaic block downsampling + Gaussian blur</span>
+              </button>
+
+              <button type="button" class="mode-option" data-style="matte_bar">
+                <div class="mode-top">
+                  <span class="mode-code">M-02</span>
+                  <span class="mode-name">SOLID MATTE BAR</span>
+                </div>
+                <span class="mode-desc">Carbon blackout strip + entity classification tag</span>
+              </button>
+
+              <button type="button" class="mode-option" data-style="synthetic_mask">
+                <div class="mode-top">
+                  <span class="mode-code">M-03</span>
+                  <span class="mode-name">SMART SYNTHETIC MASK</span>
+                </div>
+                <span class="mode-desc">Palette-matched in-place format-preserving mask</span>
+              </button>
+            </div>
+
+            <label class="inline-switch" for="showTagsToggle">
+              <span>Show [ENTITY] tags on Matte Bar</span>
+              <input type="checkbox" id="showTagsToggle" checked />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <div class="panel-header">
+            <span class="panel-index">03</span>
+            <h2>EXPORT &amp; AUDIT</h2>
+          </div>
+          <div class="panel-body export-actions">
+            <button type="button" class="tactile-btn" id="downloadRedactedBtn" disabled>
+              DOWNLOAD REDACTED PNG
+            </button>
+            <button type="button" class="tactile-btn" id="downloadAuditBtn" disabled>
+              EXPORT JSON AUDIT LOG
+            </button>
+          </div>
+        </section>
+      </aside>
+
+      <!-- CENTER INSPECTION VIEWPORT -->
+      <section class="viewport-column">
+        <div class="panel-card viewport-card">
+          <div class="viewport-toolbar">
+            <div class="view-tabs" role="tablist" aria-label="Inspection view mode">
+              <button type="button" class="view-tab active" data-view="split" role="tab" aria-selected="true">
+                SPLIT COMPARE
+              </button>
+              <button type="button" class="view-tab" data-view="overlay" role="tab" aria-selected="false">
+                DETECTION OVERLAY
+              </button>
+              <button type="button" class="view-tab" data-view="redacted" role="tab" aria-selected="false">
+                REDACTED OUTPUT
+              </button>
+            </div>
+
+            <div class="split-presets" id="splitPresets">
+              <span class="micro-label" id="splitPercentLabel">SPLIT 50%</span>
+              <button type="button" class="mini-btn" data-split="0">RAW</button>
+              <button type="button" class="mini-btn" data-split="50">50/50</button>
+              <button type="button" class="mini-btn" data-split="100">SHIELD</button>
+            </div>
+          </div>
+
+          <div class="stage-well" id="stageWell">
+            <!-- Empty State -->
+            <div class="empty-stage" id="emptyStage">
+              <div class="reticle-box">
+                <span class="reticle-tag">NO DOCUMENT LOADED</span>
+                <h3>INSPECTION STAGE READY</h3>
+                <p>
+                  Upload any screenshot or document photo, or click
+                  <strong>Generate Sample Indian ID / Payment Receipt</strong>
+                  to benchmark on-device OCR, Regex, and spaCy NER redaction.
+                </p>
+              </div>
+            </div>
+
+            <!-- Interactive Split Compare Stage -->
+            <div class="compare-wrapper hidden" id="compareWrapper">
+              <div class="compare-stage" id="compareStage">
+                <img id="imgOriginal" class="stage-img stage-img-base" alt="Original unredacted document" draggable="false" />
+                <div class="redacted-layer" id="redactedLayer">
+                  <img id="imgRedacted" class="stage-img stage-img-overlay" alt="Redacted document output" draggable="false" />
+                </div>
+
+                <div class="stage-corner-badge badge-left">RAW SOURCE</div>
+                <div class="stage-corner-badge badge-right">SHIELDED OUTPUT</div>
+
+                <div class="slider-divider" id="sliderDivider" role="slider" tabindex="0" aria-label="Before and after comparison slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+                  <div class="slider-handle">
+                    <span>◄</span>
+                    <span class="handle-grip"></span>
+                    <span>►</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detection Overlay & Redacted Full Single Image Stage -->
+            <div class="single-wrapper hidden" id="singleWrapper">
+              <img id="imgSingle" class="stage-img-single" alt="Document inspection view" draggable="false" />
+            </div>
+
+            <!-- Processing Indicator -->
+            <div class="processing-veil hidden" id="processingVeil">
+              <div class="processing-box">
+                <span class="spinner-square"></span>
+                <span id="processingLabel">RUNNING LOCAL OCR + PII PIPELINE...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AUDIT JSON & OCR TELEMETRY DRAWER -->
+        <div class="panel-card audit-card">
+          <div class="audit-header">
+            <div class="audit-tabs">
+              <button type="button" class="audit-tab active" data-audit-tab="json">JSON AUDIT LOG</button>
+              <button type="button" class="audit-tab" data-audit-tab="ocr">RAW OCR LINES</button>
+            </div>
+            <span class="micro-label" id="docFilenameLabel">NO ACTIVE SESSION</span>
+          </div>
+          <pre class="audit-pre" id="auditOutput">{
+  "status": "idle",
+  "privacy_guarantee": "100% on-device CPU inference · 0 bytes sent to cloud"
+}</pre>
+        </div>
+      </section>
+
+      <!-- RIGHT ENTITY INSPECTOR DRAWER -->
+      <aside class="inspector-drawer">
+        <div class="panel-card inspector-card">
+          <div class="panel-header inspector-header">
+            <div>
+              <span class="panel-index">04</span>
+              <h2>ENTITY INSPECTOR</h2>
+            </div>
+            <div class="inspector-bulk">
+              <button type="button" class="mini-btn" id="redactAllBtn" disabled>ALL ON</button>
+              <button type="button" class="mini-btn" id="unmaskAllBtn" disabled>ALL OFF</button>
+            </div>
+          </div>
+
+          <div class="inspector-meta" id="inspectorMeta">
+            <span>Toggle switches to selectively unblur or re-mask individual PII fields.</span>
+          </div>
+
+          <div class="entity-list" id="entityList">
+            <div class="entity-empty">
+              Detected PII bounding boxes (Aadhaar, PAN, UPI, Card, Phone, Email, Person, Address) will appear here with per-item override switches.
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
